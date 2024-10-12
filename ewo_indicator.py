@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from ta.trend import SMAIndicator, EMAIndicator
 import requests
+import os
 
 # -----------------------------
 # Step 1: Data Preparation
@@ -79,7 +80,10 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
                                      smoothLengthDefault=1, toleranceDefault=0.5,
                                      filter_peaks=True,
                                      show_breakbands=True,
-                                     breakbands_color=(255/255, 255/255, 255/255, 0.216)):
+                                     breakbands_color=(255/255, 255/255, 255/255, 0.216),
+                                     export_csv=False,
+                                     csv_filename='ewo_output.csv',
+                                     export_directory='output'):
     """
     Calculate the Elliott Wave Oscillator with Derivative Peak Detection and Breakout Bands.
 
@@ -96,6 +100,9 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
     - filter_peaks: Boolean to filter peaks by breakout bands.
     - show_breakbands: Boolean to show breakout bands.
     - breakbands_color: Color for the breakout bands (RGBA tuple).
+    - export_csv: Boolean to determine if CSV export is needed.
+    - csv_filename: Name of the output CSV file.
+    - export_directory: Directory where the CSV will be saved.
 
     Returns:
     - df: DataFrame with additional columns for EWO, smoothed EWO, breakout bands, and peak/trough markers.
@@ -295,10 +302,46 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
     plt.tight_layout()
     plt.show()
 
+    # -----------------------------
+    # Step 12: Export EWO Data to CSV
+    # -----------------------------
+
+    if export_csv:
+        # Create the export directory if it doesn't exist
+        if not os.path.exists(export_directory):
+            os.makedirs(export_directory)
+
+        # Prepare the DataFrame for export
+        export_df = pd.DataFrame({
+            'Timestamp': df.index,
+            'EWO_Value': df['smadif'],
+            'Is_Max': df['is_positive_peak'],
+            'Is_Min': df['is_negative_trough']
+        })
+
+        # Optionally, format the timestamp
+        export_df['Timestamp'] = export_df['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Define the full path for the CSV file
+        csv_path = os.path.join(export_directory, csv_filename)
+
+        try:
+            export_df.to_csv(csv_path, index=False)
+            print(f"EWO data successfully exported to {csv_path}")
+        except Exception as e:
+            print(f"Failed to export EWO data to CSV: {e}")
+
     return df
 
-# Execute the indicator calculation with '1H' timeframe
-df_with_indicator = calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True)
+# Execute the indicator calculation with '1H' timeframe and export CSV
+df_with_indicator = calculate_elliott_wave_oscillator(
+    df,
+    timeframe='1H',
+    use_percent=True,
+    export_csv=True,                 # Enable CSV export
+    csv_filename='ewo_output.csv',   # Name of the CSV file
+    export_directory='output'        # Directory to save the CSV
+)
 
 # The returned DataFrame `df_with_indicator` contains additional columns:
 # - 'sma1', 'sma2', 'smadif', 'smadif_smooth'

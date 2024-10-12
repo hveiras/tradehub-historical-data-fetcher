@@ -1,4 +1,4 @@
-class PatternDetector:
+class EWOEndofMovementDivergenceDetector:
     def __init__(self, pullback_threshold=0.8):
         """
         Initialize the PatternDetector.
