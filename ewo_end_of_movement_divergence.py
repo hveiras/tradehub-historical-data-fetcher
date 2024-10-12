@@ -1,3 +1,6 @@
+import csv
+from datetime import datetime
+
 class EWOEndofMovementDivergenceDetector:
     def __init__(self, pullback_threshold=0.8):
         """
@@ -103,9 +106,7 @@ class EWOEndofMovementDivergenceDetector:
 
     def is_height_moving_in_expected_direction_after_pullback(self, height):
         """Check if the height is moving in the expected direction after the pullback."""
-        if self.pivot_type == 'LOCAL_MIN':
-            return abs(height) > abs(self.pullback_height)
-        elif self.pivot_type == 'LOCAL_MAX':
+        if self.pivot_type in ['LOCAL_MIN', 'LOCAL_MAX']:
             return abs(height) > abs(self.pullback_height)
         return False
 
@@ -119,44 +120,51 @@ class EWOEndofMovementDivergenceDetector:
         """Return the list of detected patterns."""
         return self.patterns
 
-# Example Usage
+def parse_bool(value):
+    """Helper function to parse boolean strings from CSV."""
+    return value.strip().lower() == 'true'
+
+def main():
+    detector = EWOEndofMovementDivergenceDetector(pullback_threshold=0.8)  # 80% pullback towards zero
+
+    csv_file_path = 'output/ewo_output.csv'  # Path to the CSV file
+
+    try:
+        with open(csv_file_path, mode='r', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                timestamp_str = row['Timestamp']
+                ewo_value = float(row['EWO_Value'])
+                is_max = parse_bool(row['Is_Max'])
+                is_min = parse_bool(row['Is_Min'])
+
+                # Determine the event type
+                if is_max:
+                    event_type = 'LOCAL_MAX'
+                elif is_min:
+                    event_type = 'LOCAL_MIN'
+                else:
+                    event_type = 'HEIGHT'
+
+                # Optionally, parse the timestamp if needed
+                # timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+
+                # Process the event
+                detector.process_event(event_type, ewo_value)
+
+        # After processing all events, print the detected patterns
+        print("\nDetected Patterns:")
+        for idx, pattern in enumerate(detector.get_patterns(), start=1):
+            print(f"Pattern {idx}:")
+            print(f"  Pivot Type: {pattern['pivot_type']}")
+            print(f"  Initial Pivot Height: {pattern['initial_pivot_height']}")
+            print(f"  Pullback Height: {pattern['pullback_height']}")
+            print(f"  New Pivot Height: {pattern['new_pivot_height']}\n")
+
+    except FileNotFoundError:
+        print(f"Error: The file {csv_file_path} does not exist.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 if __name__ == "__main__":
-    detector = PatternDetector(pullback_threshold=0.8)  # 80% pullback towards zero
-
-    # Simulated sequence of events with negative and positive HEIGHT values
-    events = [
-        # LOCAL_MIN Pattern (negative heights)
-        ('HEIGHT', -10),
-        ('LOCAL_MIN', -10),    # Pivot set to -10
-        ('LOCAL_MIN', -12),    # Pivot updated to -12 (more significant)
-        ('HEIGHT', -2),        # Pullback detected (-2 is 80% closer to zero from -10 and -12)
-        ('HEIGHT', -3),        # Height movement detected (moving away from pullback height)
-        ('LOCAL_MIN', -15),    # Pattern completed (-15 is more significant than pivot -12)
-
-        # LOCAL_MAX Pattern (positive heights)
-        ('HEIGHT', 8),
-        ('LOCAL_MAX', 8),      # Pivot set to 8
-        ('HEIGHT', 1.6),       # Pullback detected (1.6 is 80% closer to zero from 8)
-        ('HEIGHT', 2),         # Height movement detected
-        ('LOCAL_MAX', 10),     # Pattern completed (10 is more significant than pivot 8)
-
-        # Additional Patterns
-        ('HEIGHT', -5),
-        ('LOCAL_MIN', -5),     # Pivot set to -5
-        ('HEIGHT', -1),        # Pullback detected (-1 is 80% closer to zero from -5)
-        ('HEIGHT', -1.5),      # Height movement detected
-        ('LOCAL_MIN', -6),     # Pattern completed (-6 is more significant than pivot -5)
-
-        ('HEIGHT', 6),
-        ('LOCAL_MAX', 6),      # Pivot set to 6
-        ('HEIGHT', 1.2),       # Pullback detected (1.2 is 80% closer to zero from 6)
-        ('HEIGHT', 1.5),       # Height movement detected
-        ('LOCAL_MAX', 7),      # Pattern completed (7 is more significant than pivot 6),
-    ]
-
-    for event in events:
-        detector.process_event(*event)
-
-    print("\nDetected Patterns:")
-    for pattern in detector.get_patterns():
-        print(pattern)
+    main()
