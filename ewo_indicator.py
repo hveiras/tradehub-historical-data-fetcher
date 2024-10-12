@@ -315,8 +315,8 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
         export_df = pd.DataFrame({
             'Timestamp': df.index,
             'EWO_Value': df['smadif'],
-            'Is_Max': df['is_positive_peak'],
-            'Is_Min': df['is_negative_trough']
+            'Is_Max': df['plotPositivePeak'],
+            'Is_Min': df['plotNegativeTrough']
         })
 
         # Optionally, format the timestamp
