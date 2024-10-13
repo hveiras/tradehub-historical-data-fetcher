@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from ta.trend import SMAIndicator, EMAIndicator
 import requests
 import os
 
@@ -113,9 +112,6 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
     # -----------------------------
 
     # Mapping Pine Script's timeframe detection to pandas frequency
-    # Pine Script uses 'D' for daily, '60' for hourly, '5T' for 5-minute, etc.
-    # In pandas, frequencies are like 'D', 'H', '5T', etc.
-
     freq = pd.infer_freq(df.index)
     if freq is None:
         # If frequency can't be inferred, use the provided timeframe
@@ -149,8 +145,9 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
     # Step 4: Calculate Simple Moving Averages (SMA)
     # -----------------------------
 
-    sma1 = SMAIndicator(close=df['close'], window=sma1length, fillna=True).sma_indicator()
-    sma2 = SMAIndicator(close=df['close'], window=sma2length, fillna=True).sma_indicator()
+    # Replace SMAIndicator with pandas rolling mean
+    sma1 = df['close'].rolling(window=sma1length, min_periods=1).mean()
+    sma2 = df['close'].rolling(window=sma2length, min_periods=1).mean()
 
     df['sma1'] = sma1
     df['sma2'] = sma2
@@ -168,7 +165,8 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
     # Step 6: Smooth the EWO with EMA
     # -----------------------------
 
-    smadif_smooth = EMAIndicator(close=df['smadif'], window=smoothLength, fillna=True).ema_indicator()
+    # Replace EMAIndicator with pandas ewm
+    smadif_smooth = df['smadif'].ewm(span=smoothLength, adjust=False).mean()
     df['smadif_smooth'] = smadif_smooth
 
     # -----------------------------
@@ -255,7 +253,7 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
 
     initial_nan_count = df['sma2'].isna().sum()
     if initial_nan_count > 0:
-        print(f"Dropping the first {initial_nan_count} rows due to insufficient data for SMA35.")
+        print(f"Dropping the first {initial_nan_count} rows due to insufficient data for SMA{int(sma2length)}.")
         df = df.dropna(subset=['sma2', 'sma1', 'smadif', 'smadif_smooth', 'derivative', 'derivative_prev'])
 
     # -----------------------------
@@ -325,13 +323,13 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
         })
 
         # Optionally, format the timestamp
-        export_df['Timestamp'] = export_df['Timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+        export_df['Timestamp'] = export_df['Timestamp'].strftime('%Y-%m-%d %H:%M:%S')
 
         # Define the full path for the CSV file
         csv_path = os.path.join(export_directory, csv_filename)
 
         try:
-            # **New Line:** Drop any remaining NaN rows before exporting
+            # Drop any remaining NaN rows before exporting
             export_df = export_df.dropna()
 
             export_df.to_csv(csv_path, index=False)
