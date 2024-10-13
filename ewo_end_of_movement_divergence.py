@@ -23,8 +23,9 @@ class EWOEndofMovementDivergenceDetector:
         self.height_after_pullback = None
         self.required_pullback_height = None  # To store the required pullback height
         self.patterns = []  # To store detected patterns
+        self.bars_since_pivot = 0  # Counter for the number of bars since pivot
 
-    def process_event(self, event_type, height):
+    def process_event(self, timestamp_str, event_type, height):
         """
         Process an incoming event.
 
@@ -33,29 +34,38 @@ class EWOEndofMovementDivergenceDetector:
         """
         print(f"Processing event: Type={event_type}, Height={height}, Current State={self.state}")
         if event_type == 'HEIGHT':
-            self.handle_height(height)
+            self.handle_height(timestamp_str, height)
         elif event_type in ['LOCAL_MIN', 'LOCAL_MAX']:
-            self.handle_extrema(event_type, height)
+            self.handle_extrema(timestamp_str, event_type, height)
         else:
             print(f"Unknown event type: {event_type}")
+        # Increment bars since pivot if not in 'Idle' state
+        if self.state != 'Idle':
+            self.bars_since_pivot += 1
+            if self.bars_since_pivot > 120:
+                print(f"Pattern did not complete within 120 bars. Resetting to Idle.")
+                self.reset()
 
-    def handle_extrema(self, event_type, height):
-        print(f"Handling extrema: Event Type={event_type}, Height={height}, State={self.state}")
+    def handle_extrema(self, timestamp_str, event_type, height):
+        log_prefix = f"[{timestamp_str}]"
+        print(f"{log_prefix} Handling extrema: Event Type={event_type}, Height={height}, State={self.state}")
         if self.state == 'Idle':
             # Set initial pivot
             self.current_pivot_height = height
             self.pivot_type = event_type
             self.state = 'WaitingPullback'
-            print(f"Pivot ({event_type}) detected. Recorded pivot height: {height}")
+            self.bars_since_pivot = 0  # Reset counter
+            print(f"{log_prefix} Pivot ({event_type}) detected. Recorded pivot height: {height}")
         elif self.state in ['WaitingPullback', 'WaitingIncrease']:
             if event_type == self.pivot_type:
                 if self.should_update_pivot(height):
                     # Update pivot to more significant point
-                    print(f"New {event_type} received with more significant height {height}. Pivot updated from {self.current_pivot_height} to {height}")
+                    print(f"{log_prefix} New {event_type} received with more significant height {height}. Pivot updated from {self.current_pivot_height} to {height}")
                     self.current_pivot_height = height
                     self.pullback_height = None
                     self.height_after_pullback = None
                     self.required_pullback_height = None
+                    self.bars_since_pivot = 0  # Reset counter
                     self.state = 'WaitingPullback'
                 elif self.state == 'WaitingIncrease' and self.height_after_pullback is not None and self.is_pattern_complete(height):
                     # Complete the pattern
@@ -72,38 +82,37 @@ class EWOEndofMovementDivergenceDetector:
                         }
                     }
                     self.patterns.append(pattern)
-                    print(f"Pattern completed: {pattern}")
+                    print(f"{log_prefix} Pattern completed: {pattern}")
                     # Reset for next pattern detection
-                    self.current_pivot_height = height
-                    self.pullback_height = None
-                    self.height_after_pullback = None
-                    self.required_pullback_height = None
-                    self.state = 'WaitingPullback'
+                    self.reset()
                 else:
                     # Do not update pivot; continue waiting
-                    print(f"New {event_type} with height {height} does not replace pivot or complete pattern.")
+                    print(f"{log_prefix} New {event_type} with height {height} does not replace pivot or complete pattern.")
             else:
-                # Different pivot type received; ignore
-                print(f"Received {event_type} while tracking {self.pivot_type}; ignoring.")
+                # Opposite pivot type received; reset to Idle
+                print(f"{log_prefix} Received opposite pivot ({event_type}) before pattern completion. Resetting to Idle.")
+                self.reset()
 
-    def handle_height(self, height):
-        print(f"Handling height: Height={height}, State={self.state}")
+    def handle_height(self, timestamp_str, height):
+        log_prefix = f"[{timestamp_str}]"
+        print(f"{log_prefix} Handling height: Height={height}, State={self.state}")
         if self.state == 'WaitingPullback':
             required_pullback_height = self.calculate_required_pullback()
-            print(f"Calculated required pullback height: {required_pullback_height}")
+            print(f"{log_prefix} Calculated required pullback height: {required_pullback_height}")
             if self.is_pullback_detected(height, required_pullback_height):
                 self.pullback_height = height
                 self.required_pullback_height = required_pullback_height
                 self.state = 'WaitingIncrease'
-                print(f"Pullback detected for {self.pivot_type}. Height: {height}, Required: {required_pullback_height}")
+                self.bars_since_pivot = 0  # Reset counter
+                print(f"{log_prefix} Pullback detected for {self.pivot_type}. Height: {height}, Required: {required_pullback_height}")
             else:
-                print(f"No pullback detected. Current height: {height}, Required pullback: {required_pullback_height}")
+                print(f"{log_prefix} No pullback detected. Current height: {height}, Required pullback: {required_pullback_height}")
         elif self.state == 'WaitingIncrease':
             if self.is_height_moving_in_expected_direction_after_pullback(height):
                 self.height_after_pullback = height
                 print(f"Height movement detected after {self.pivot_type} pullback. Current height: {height}")
             else:
-                print(f"Height not moving in expected direction. Current height: {height}, Pullback height: {self.pullback_height}")
+                print(f"{log_prefix} Height not moving in expected direction. Current height: {height}, Pullback height: {self.pullback_height}")
 
     def calculate_required_pullback(self):
         """Calculate the required pullback height based on the pivot and threshold."""
@@ -192,7 +201,7 @@ def main():
                 # timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
 
                 # Process the event
-                detector.process_event(event_type, ewo_value)
+                detector.process_event(timestamp_str, event_type, ewo_value)
 
         # After processing all events, print the detected patterns
         print("\nDetected Patterns:")
