@@ -21,6 +21,7 @@ class EWOEndofMovementDivergenceDetector:
         self.pivot_type = None  # 'LOCAL_MIN' or 'LOCAL_MAX'
         self.pullback_height = None
         self.height_after_pullback = None
+        self.required_pullback_height = None  # To store the required pullback height
         self.patterns = []  # To store detected patterns
 
     def process_event(self, event_type, height):
@@ -30,6 +31,7 @@ class EWOEndofMovementDivergenceDetector:
         :param event_type: Type of the event ('LOCAL_MIN', 'LOCAL_MAX', 'HEIGHT')
         :param height: The HEIGHT value associated with the event
         """
+        print(f"Processing event: Type={event_type}, Height={height}, Current State={self.state}")
         if event_type == 'HEIGHT':
             self.handle_height(height)
         elif event_type in ['LOCAL_MIN', 'LOCAL_MAX']:
@@ -38,6 +40,7 @@ class EWOEndofMovementDivergenceDetector:
             print(f"Unknown event type: {event_type}")
 
     def handle_extrema(self, event_type, height):
+        print(f"Handling extrema: Event Type={event_type}, Height={height}, State={self.state}")
         if self.state == 'Idle':
             # Set initial pivot
             self.current_pivot_height = height
@@ -52,6 +55,7 @@ class EWOEndofMovementDivergenceDetector:
                     self.current_pivot_height = height
                     self.pullback_height = None
                     self.height_after_pullback = None
+                    self.required_pullback_height = None
                     self.state = 'WaitingPullback'
                 elif self.state == 'WaitingIncrease' and self.height_after_pullback is not None and self.is_pattern_complete(height):
                     # Complete the pattern
@@ -59,7 +63,13 @@ class EWOEndofMovementDivergenceDetector:
                         'pivot_type': self.pivot_type,
                         'initial_pivot_height': self.current_pivot_height,
                         'pullback_height': self.pullback_height,
-                        'new_pivot_height': height
+                        'required_pullback_height': self.required_pullback_height,
+                        'new_pivot_height': height,
+                        'pullback_evaluation': {
+                            'actual_pullback_height': self.pullback_height,
+                            'required_pullback_height': self.required_pullback_height,
+                            'is_pullback_valid': abs(self.pullback_height) <= abs(self.required_pullback_height)
+                        }
                     }
                     self.patterns.append(pattern)
                     print(f"Pattern completed: {pattern}")
@@ -67,6 +77,7 @@ class EWOEndofMovementDivergenceDetector:
                     self.current_pivot_height = height
                     self.pullback_height = None
                     self.height_after_pullback = None
+                    self.required_pullback_height = None
                     self.state = 'WaitingPullback'
                 else:
                     # Do not update pivot; continue waiting
@@ -76,44 +87,75 @@ class EWOEndofMovementDivergenceDetector:
                 print(f"Received {event_type} while tracking {self.pivot_type}; ignoring.")
 
     def handle_height(self, height):
+        print(f"Handling height: Height={height}, State={self.state}")
         if self.state == 'WaitingPullback':
             required_pullback_height = self.calculate_required_pullback()
+            print(f"Calculated required pullback height: {required_pullback_height}")
             if self.is_pullback_detected(height, required_pullback_height):
                 self.pullback_height = height
+                self.required_pullback_height = required_pullback_height
                 self.state = 'WaitingIncrease'
                 print(f"Pullback detected for {self.pivot_type}. Height: {height}, Required: {required_pullback_height}")
+            else:
+                print(f"No pullback detected. Current height: {height}, Required pullback: {required_pullback_height}")
         elif self.state == 'WaitingIncrease':
             if self.is_height_moving_in_expected_direction_after_pullback(height):
                 self.height_after_pullback = height
                 print(f"Height movement detected after {self.pivot_type} pullback. Current height: {height}")
+            else:
+                print(f"Height not moving in expected direction. Current height: {height}, Pullback height: {self.pullback_height}")
 
     def calculate_required_pullback(self):
         """Calculate the required pullback height based on the pivot and threshold."""
         pivot_abs = abs(self.current_pivot_height)
-        return pivot_abs * (1 - self.pullback_threshold)
+        required_pullback = pivot_abs * (1 - self.pullback_threshold)
+        print(f"Calculated pullback requirement: Pivot={self.current_pivot_height}, Threshold={self.pullback_threshold}, Required={required_pullback}")
+        return required_pullback
 
     def should_update_pivot(self, height):
         """Determine if the pivot should be updated based on the new height."""
+        print(f"Checking if pivot should be updated: Current Pivot={self.current_pivot_height}, New Height={height}")
         if abs(height) > abs(self.current_pivot_height):
+            print(f"Pivot should be updated.")
             return True
+        print(f"Pivot should not be updated.")
         return False
 
     def is_pullback_detected(self, height, required_pullback_height):
         """Check if a pullback is detected based on the pivot type and height."""
+        print(f"Checking pullback: Current Height={height}, Required Pullback Height={required_pullback_height}")
         if abs(height) <= required_pullback_height:
+            print(f"Pullback detected.")
             return True
+        print(f"Pullback not detected.")
         return False
 
     def is_height_moving_in_expected_direction_after_pullback(self, height):
         """Check if the height is moving in the expected direction after the pullback."""
-        if self.pivot_type in ['LOCAL_MIN', 'LOCAL_MAX']:
-            return abs(height) > abs(self.pullback_height)
+        print(f"Checking height movement after pullback: Pullback Height={self.pullback_height}, Current Height={height}")
+        if self.pivot_type == 'LOCAL_MAX':
+            # Expecting height to increase after a pullback from a local max
+            if height > self.pullback_height:
+                print(f"Height is moving upwards as expected after LOCAL_MAX pullback.")
+                return True
+        elif self.pivot_type == 'LOCAL_MIN':
+            # Expecting height to decrease after a pullback from a local min
+            if height < self.pullback_height:
+                print(f"Height is moving downwards as expected after LOCAL_MIN pullback.")
+                return True
+        print(f"Height is not moving in expected direction.")
         return False
 
     def is_pattern_complete(self, height):
         """Check if the pattern is complete based on the pivot type and new extrema height."""
-        if abs(height) > abs(self.current_pivot_height):
+        print(f"Checking if pattern is complete: Current Pivot Height={self.current_pivot_height}, New Height={height}")
+        if self.pivot_type == 'LOCAL_MAX' and height > self.current_pivot_height:
+            print(f"Pattern is complete for LOCAL_MAX.")
             return True
+        elif self.pivot_type == 'LOCAL_MIN' and height < self.current_pivot_height:
+            print(f"Pattern is complete for LOCAL_MIN.")
+            return True
+        print(f"Pattern is not complete.")
         return False
 
     def get_patterns(self):
@@ -158,7 +200,12 @@ def main():
             print(f"Pattern {idx}:")
             print(f"  Pivot Type: {pattern['pivot_type']}")
             print(f"  Initial Pivot Height: {pattern['initial_pivot_height']}")
+            print(f"  Required Pullback Height: {pattern['required_pullback_height']}")
             print(f"  Pullback Height: {pattern['pullback_height']}")
+            print(f"  Pullback Evaluation:")
+            print(f"    Actual Pullback Height: {pattern['pullback_evaluation']['actual_pullback_height']}")
+            print(f"    Required Pullback Height: {pattern['pullback_evaluation']['required_pullback_height']}")
+            print(f"    Is Pullback Valid: {pattern['pullback_evaluation']['is_pullback_valid']}")
             print(f"  New Pivot Height: {pattern['new_pivot_height']}\n")
 
     except FileNotFoundError:
