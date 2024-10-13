@@ -253,6 +253,11 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
         df['plotPositivePeak'] = df['is_positive_peak']
         df['plotNegativeTrough'] = df['is_negative_trough']
 
+    initial_nan_count = df['sma2'].isna().sum()
+    if initial_nan_count > 0:
+        print(f"Dropping the first {initial_nan_count} rows due to insufficient data for SMA35.")
+        df = df.dropna(subset=['sma2', 'sma1', 'smadif', 'smadif_smooth', 'derivative', 'derivative_prev'])
+
     # -----------------------------
     # Step 11: Visualization
     # -----------------------------
@@ -326,6 +331,9 @@ def calculate_elliott_wave_oscillator(df, timeframe='1H', use_percent=True,
         csv_path = os.path.join(export_directory, csv_filename)
 
         try:
+            # **New Line:** Drop any remaining NaN rows before exporting
+            export_df = export_df.dropna()
+
             export_df.to_csv(csv_path, index=False)
             print(f"EWO data successfully exported to {csv_path}")
         except Exception as e:
