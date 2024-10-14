@@ -78,7 +78,8 @@ class EWOEndofMovementDivergenceDetector:
                         'pullback_evaluation': {
                             'actual_pullback_height': self.pullback_height,
                             'required_pullback_height': self.required_pullback_height,
-                            'is_pullback_valid': abs(self.pullback_height) <= abs(self.required_pullback_height)
+                            'is_pullback_valid': (self.pivot_type == 'LOCAL_MAX' and self.pullback_height <= self.required_pullback_height) or
+                                                 (self.pivot_type == 'LOCAL_MIN' and self.pullback_height >= self.required_pullback_height)
                         }
                     }
                     self.patterns.append(pattern)
@@ -110,7 +111,7 @@ class EWOEndofMovementDivergenceDetector:
         elif self.state == 'WaitingIncrease':
             if self.is_height_moving_in_expected_direction_after_pullback(height):
                 self.height_after_pullback = height
-                print(f"Height movement detected after {self.pivot_type} pullback. Current height: {height}")
+                print(f"{log_prefix} Height movement detected after {self.pivot_type} pullback. Current height: {height}")
             else:
                 print(f"{log_prefix} Height not moving in expected direction. Current height: {height}, Pullback height: {self.pullback_height}")
 
@@ -118,14 +119,19 @@ class EWOEndofMovementDivergenceDetector:
         """Calculate the required pullback height based on the pivot and threshold."""
         pivot_abs = abs(self.current_pivot_height)
         required_pullback = pivot_abs * (1 - self.pullback_threshold)
+        if self.pivot_type == 'LOCAL_MIN':
+            required_pullback = -required_pullback  # Make it negative for MIN pivots
         print(f"Calculated pullback requirement: Pivot={self.current_pivot_height}, Threshold={self.pullback_threshold}, Required={required_pullback}")
         return required_pullback
 
     def should_update_pivot(self, height):
         """Determine if the pivot should be updated based on the new height."""
         print(f"Checking if pivot should be updated: Current Pivot={self.current_pivot_height}, New Height={height}")
-        if abs(height) > abs(self.current_pivot_height):
-            print(f"Pivot should be updated.")
+        if self.pivot_type == 'LOCAL_MAX' and height > self.current_pivot_height:
+            print(f"Pivot should be updated for LOCAL_MAX.")
+            return True
+        elif self.pivot_type == 'LOCAL_MIN' and height < self.current_pivot_height:
+            print(f"Pivot should be updated for LOCAL_MIN.")
             return True
         print(f"Pivot should not be updated.")
         return False
@@ -133,8 +139,11 @@ class EWOEndofMovementDivergenceDetector:
     def is_pullback_detected(self, height, required_pullback_height):
         """Check if a pullback is detected based on the pivot type and height."""
         print(f"Checking pullback: Current Height={height}, Required Pullback Height={required_pullback_height}")
-        if abs(height) <= required_pullback_height:
-            print(f"Pullback detected.")
+        if self.pivot_type == 'LOCAL_MAX' and height <= required_pullback_height:
+            print(f"Pullback detected for LOCAL_MAX.")
+            return True
+        elif self.pivot_type == 'LOCAL_MIN' and height >= required_pullback_height:
+            print(f"Pullback detected for LOCAL_MIN.")
             return True
         print(f"Pullback not detected.")
         return False
@@ -176,7 +185,7 @@ def parse_bool(value):
     return value.strip().lower() == 'true'
 
 def main():
-    detector = EWOEndofMovementDivergenceDetector(pullback_threshold=0.6)  # 80% pullback towards zero
+    detector = EWOEndofMovementDivergenceDetector(pullback_threshold=0.6)  # 60% pullback
 
     csv_file_path = 'output/ewo_output.csv'  # Path to the CSV file
 
