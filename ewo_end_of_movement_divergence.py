@@ -180,6 +180,11 @@ def main():
 
     csv_file_path = 'output/ewo_output.csv'  # Path to the CSV file
 
+    # ANSI escape codes for colored output
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    RESET = '\033[0m'
+
     try:
         with open(csv_file_path, mode='r', newline='') as csvfile:
             reader = list(csv.DictReader(csvfile))
@@ -194,13 +199,13 @@ def main():
                 # Determine the event type
                 if is_max:
                     event_type = 'LOCAL_MAX'
+                    print(f"{RED}[{timestamp_str}] LOCAL_MAX Detected: Height={ewo_value}{RESET}")
                 elif is_min:
                     event_type = 'LOCAL_MIN'
+                    print(f"{GREEN}[{timestamp_str}] LOCAL_MIN Detected: Height={ewo_value}{RESET}")
                 else:
                     event_type = 'HEIGHT'
-
-                # Optionally, parse the timestamp if needed
-                # timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                    print(f"[{timestamp_str}] HEIGHT: {ewo_value}")
 
                 # Process the event
                 detector.process_event(timestamp_str, event_type, ewo_value)
