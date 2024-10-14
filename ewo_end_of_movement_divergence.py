@@ -2,7 +2,7 @@ import csv
 from datetime import datetime
 
 class EWOEndofMovementDivergenceDetector:
-    def __init__(self, pullback_threshold=0.8):
+    def __init__(self, pullback_threshold=0.6):
         """
         Initialize the PatternDetector.
 
@@ -158,10 +158,10 @@ class EWOEndofMovementDivergenceDetector:
     def is_pattern_complete(self, height):
         """Check if the pattern is complete based on the pivot type and new extrema height."""
         print(f"Checking if pattern is complete: Current Pivot Height={self.current_pivot_height}, New Height={height}")
-        if self.pivot_type == 'LOCAL_MAX' and height > self.current_pivot_height:
+        if self.pivot_type == 'LOCAL_MAX' and height <= self.current_pivot_height:
             print(f"Pattern is complete for LOCAL_MAX.")
             return True
-        elif self.pivot_type == 'LOCAL_MIN' and height < self.current_pivot_height:
+        elif self.pivot_type == 'LOCAL_MIN' and height >= self.current_pivot_height:
             print(f"Pattern is complete for LOCAL_MIN.")
             return True
         print(f"Pattern is not complete.")
@@ -176,14 +176,16 @@ def parse_bool(value):
     return value.strip().lower() == 'true'
 
 def main():
-    detector = EWOEndofMovementDivergenceDetector(pullback_threshold=0.8)  # 80% pullback towards zero
+    detector = EWOEndofMovementDivergenceDetector(pullback_threshold=0.6)  # 80% pullback towards zero
 
     csv_file_path = 'output/ewo_output.csv'  # Path to the CSV file
 
     try:
         with open(csv_file_path, mode='r', newline='') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
+            reader = list(csv.DictReader(csvfile))
+            last_200_rows = reader[-200:] if len(reader) > 200 else reader
+
+            for row in last_200_rows:
                 timestamp_str = row['Timestamp']
                 ewo_value = float(row['EWO_Value'])
                 is_max = parse_bool(row['Is_Max'])
