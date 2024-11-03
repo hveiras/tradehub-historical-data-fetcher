@@ -1,0 +1,127 @@
+//@version=5
+indicator("Unusual Volume Activity with Double Volatility Compression", overlay=true)
+
+// === Input Parameters ===
+N = input.int(title="Number of Days for Average Volume (Compressed)", defval=20, minval=2)
+threshold = input.float(title="Volume Threshold Multiplier (Compressed)", defval=2.0, step=0.1)
+vol_length = input.int(title="Volatility Length (Close-to-Close)", defval=14, minval=1)
+vol_ma_length = input.int(title="Volatility Moving Average Length", defval=20, minval=1)
+
+// New average period for high volume outside compressed volatility
+N_outside = input.int(title="Number of Days for Average Volume (Outside Compression)", defval=10, minval=2)
+threshold_outside = input.float(title="Volume Threshold Multiplier (Outside Compression)", defval=1.5, step=0.1)
+
+// === Average Volume Calculation for Compressed Volatility ===
+// Calculate the average volume over the past N days excluding today
+avg_vol_compressed = ta.sma(volume, N)[1]
+
+// === Average Volume Calculation for Outside Compression ===
+// Calculate the average volume over the past N_outside days excluding today
+avg_vol_outside = ta.sma(volume, N_outside)[1]
+
+// === Unusual Volume Conditions ===
+// Check if current volume is at least 'threshold' times the average volume for compressed periods
+double_vol_compressed = volume >= (threshold * avg_vol_compressed)
+
+// Check if current volume is at least 'threshold_outside' times the average volume for outside compression periods
+double_vol_outside = volume >= (threshold_outside * avg_vol_outside)
+
+// === Close-to-Close Volatility Calculation ===
+// Calculate close-to-close returns
+returns = math.log(close / close[1])
+
+// Calculate standard deviation of returns as a measure of close-to-close volatility
+volatility_close_to_close = ta.stdev(returns, vol_length)
+
+// Calculate moving average of close-to-close volatility to determine baseline for compression
+avg_volatility_close_to_close = ta.sma(volatility_close_to_close, vol_ma_length)
+
+// === High-to-Low Volatility Calculation ===
+// Calculate high-to-low range as a measure of volatility
+high_low_range = high - low
+
+// Calculate standard deviation of high-to-low range
+volatility_high_low = ta.stdev(high_low_range, vol_length)
+
+// Calculate moving average of high-to-low volatility
+avg_volatility_high_low = ta.sma(volatility_high_low, vol_ma_length)
+
+// === Compressed Volatility Condition ===
+// Define compressed volatility as both close-to-close and high-to-low volatilities being below their moving averages
+compressed_volatility = (volatility_close_to_close < avg_volatility_close_to_close) and (volatility_high_low < avg_volatility_high_low)
+
+// === Combined Conditions ===
+// Unusual volume during compressed volatility
+unusual_vol_compressed_vol = double_vol_compressed and compressed_volatility
+
+// High volume outside of compressed volatility
+high_vol_outside_compression = double_vol_outside and not compressed_volatility
+
+// === State Management for Plotting Triangles ===
+// Initialize flags to control triangle plotting
+var bool can_plot_up = true
+var bool can_plot_down = true
+
+// === Plotting Conditions Before Updating Flags ===
+// Determine if triangles should be plotted
+plot_triangle_up = high_vol_outside_compression and can_plot_up and (close > open)
+plot_triangle_down = high_vol_outside_compression and can_plot_down and (close < open)
+
+// === Plotting the Signals ===
+// Plot unusual volume during compressed volatility as yellow circles above bars
+plotshape(unusual_vol_compressed_vol, 
+          style=shape.circle, 
+          location=location.abovebar, 
+          color=color.yellow, 
+          size=size.tiny, 
+          title="Unusual Volume During Compressed Volatility")
+
+// Plot Triangle Up for bullish high volume outside compression
+plotshape(plot_triangle_up, 
+          style=shape.triangleup, 
+          location=location.abovebar, 
+          color=color.green, 
+          size=size.small, 
+          title="High Volume Outside Compression - Bullish")
+
+// Plot Triangle Down for bearish high volume outside compression
+plotshape(plot_triangle_down, 
+          style=shape.triangledown, 
+          location=location.abovebar, 
+          color=color.red, 
+          size=size.small, 
+          title="High Volume Outside Compression - Bearish")
+
+// === Update Flags After Plotting ===
+// Disable further plotting of triangles until a new compression period resets the flags
+if plot_triangle_up
+    can_plot_up := false
+
+if plot_triangle_down
+    can_plot_down := false
+
+// === Reset Flags When a New Compressed Volatility Period Starts ===
+if compressed_volatility
+    can_plot_up := true
+    can_plot_down := true
+
+// === Background Color for Volatility Conditions ===
+// Highlight compressed volatility periods in green background
+bgcolor(compressed_volatility ? color.new(color.green, 90) : na, title="Compressed Volatility Background")
+
+// === Optional: Visualize Volatilities and their Moving Averages ===
+plot(volatility_close_to_close, title="Close-to-Close Volatility", color=color.blue, linewidth=1, display=display.none)
+plot(avg_volatility_close_to_close, title="Close-to-Close Volatility MA", color=color.blue, linewidth=1, display=display.none)
+plot(volatility_high_low, title="High-to-Low Volatility", color=color.purple, linewidth=1, display=display.none)
+plot(avg_volatility_high_low, title="High-to-Low Volatility MA", color=color.purple, linewidth=1, display=display.none)
+
+// === Debugging Aids ===
+// Uncomment the following lines to visualize internal states for debugging purposes
+
+plotchar(high_vol_outside_compression, title="High Vol Outside Compression", char='H', location=location.bottom, color=color.blue, size=size.tiny)
+plotchar(compressed_volatility, title="Compressed Volatility", char='C', location=location.bottom, color=color.purple, size=size.tiny)
+plotchar(can_plot_up, title="Can Plot Up", char='U', location=location.bottom, color=color.green, size=size.tiny)
+plotchar(can_plot_down, title="Can Plot Down", char='D', location=location.bottom, color=color.red, size=size.tiny)
+plotchar(plot_triangle_up, title="Plot Triangle Up", char='▲', location=location.bottom, color=color.green, size=size.tiny)
+plotchar(plot_triangle_down, title="Plot Triangle Down", char='▼', location=location.bottom, color=color.red, size=size.tiny)
+
