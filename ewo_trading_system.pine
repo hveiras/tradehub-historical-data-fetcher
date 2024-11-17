@@ -1,0 +1,211 @@
+//@version=5
+indicator(title = "EWO Trading System", shorttitle="EWO Trading System", overlay=false)
+
+// ------------------------------
+// Inputs for Different Timeframes
+// ------------------------------
+sma1length = input.int(5, title="Short MA Length")
+sma2length = input.int(35, title="Long MA Length")
+
+// Inputs for smoothing and tolerance depending on the timeframe
+smoothLength1D = input.int(1, title="Smoothing Length for Daily (1D)")
+tolerance1D = input.float(0.5, title="Tolerance for Daily (1D)")
+
+smoothLength1H = input.int(1, title="Smoothing Length for Hourly (1H)")
+tolerance1H = input.float(0.5, title="Tolerance for Hourly (1H)")
+
+smoothLength5M = input.int(1, title="Smoothing Length for 5-Minute (5M)")
+tolerance5M = input.float(0.5, title="Tolerance for 5-Minute (5M)")
+
+smoothLengthDefault = input.int(1, title="Smoothing Length for Other Timeframes")
+toleranceDefault = input.float(0.5, title="Tolerance for Other Timeframes")
+
+// Detect current timeframe and apply corresponding smoothing and tolerance using switch
+tf = timeframe.period
+
+smoothLength = switch tf
+    "D" => smoothLength1D
+    "60" => smoothLength1H
+    "5" => smoothLength5M
+    => smoothLengthDefault
+
+tolerance = switch tf
+    "D" => tolerance1D
+    "60" => tolerance1H
+    "5" => tolerance5M
+    => toleranceDefault
+
+UsePercent = input.bool(true, title="Show Difference as Percent of Current Candle")
+
+// ------------------------------
+// Elliott Wave Oscillator Calculation
+// ------------------------------
+src = input(close, title="Source")
+smadif = UsePercent ? (ta.sma(src, sma1length) - ta.sma(src, sma2length)) / src * 100 : ta.sma(src, sma1length) - ta.sma(src, sma2length)
+
+// Smooth the EWO with EMA
+smadif_smooth = ta.ema(smadif, smoothLength)
+
+// Approximate the derivative (difference between consecutive values)
+derivative = smadif_smooth - smadif_smooth[1]
+
+// Identify peaks and troughs when the derivative is close to zero (within the tolerance) and showing a clear turning point
+is_positive_peak = derivative[1] > 0 and derivative < 0 and math.abs(derivative) < tolerance
+is_negative_trough = derivative[1] < 0 and derivative > 0 and math.abs(derivative) < tolerance
+
+// ------------------------------
+// Breakout Bands Calculation
+// ------------------------------
+filterPeaks = input.bool(true, title="Filter Peaks by Breakout Bands")
+breakbands = input.bool(true, title = "Show Breakout Bands")
+bbcol = input.color(color.rgb(255,255,255,55), "Bands Color")
+
+var float upperband = na
+var float lowerband = na
+k = 1
+k2 = 0.0555
+
+if bar_index > sma2length
+    if smadif_smooth > 0
+        upperband := na(upperband) ? smadif_smooth : upperband[1] + k2 * (k * smadif_smooth - upperband[1])
+        lowerband := lowerband[1]
+    else
+        lowerband := na(lowerband) ? smadif_smooth : lowerband[1] + k2 * (k * smadif_smooth - lowerband[1])
+        upperband := upperband[1]
+
+// ------------------------------
+// Plotting
+// ------------------------------
+// Plot the original EWO as a histogram
+plot(smadif, color=(smadif <= 0 ? color.red : color.green), linewidth=2, style=plot.style_histogram, title="Original EWO")
+
+// Plot the smoothed EWO as a line
+plot(smadif_smooth, color=color.blue, linewidth=2, style=plot.style_line, title="Smoothed EWO")
+
+// Plot breakout bands
+plot(breakbands and not na(upperband) ? upperband : na, color=bbcol, style=plot.style_line, linewidth=2, title="Upper Band")
+plot(breakbands and not na(lowerband) ? lowerband : na, color=bbcol, style=plot.style_line, linewidth=2, title="Lower Band")
+
+// Conditions for plotting peaks based on whether they are above upper band or below lower band
+plotPositivePeak = is_positive_peak and (not filterPeaks or smadif_smooth > upperband)
+plotNegativeTrough = is_negative_trough and (not filterPeaks or smadif_smooth < lowerband)
+
+// Plot shapes for peaks and troughs
+plotshape(plotPositivePeak ? smadif_smooth : na, style=shape.triangleup, location=location.absolute, color=color.purple, size=size.small, title="Positive Peak")
+plotshape(plotNegativeTrough ? smadif_smooth : na, style=shape.triangledown, location=location.absolute, color=color.red, size=size.small, title="Negative Trough")
+
+// ------------------------------
+// Pattern Detection State Machine
+// ------------------------------
+
+// State Machine Variables
+var string state = "Idle"
+var float current_pivot_height = na
+var string pivot_type = ""
+var float pullback_height = na
+var float required_pullback_height = na
+var float height_after_pullback = na
+var int bars_since_pivot = 0
+
+pullback_threshold = input.float(0.6, title="Pullback Threshold (0-1)", minval=0.0, maxval=1.0)
+
+// Label Handling
+var label patternLabel = na
+
+// Determine the event type
+event_type = is_positive_peak ? "LOCAL_MAX" : is_negative_trough ? "LOCAL_MIN" : "HEIGHT"
+
+// Process the event
+if (event_type == "LOCAL_MAX" or event_type == "LOCAL_MIN")
+    // Handle extrema
+    if (state == "Idle")
+        // Set initial pivot
+        current_pivot_height := smadif_smooth
+        pivot_type := event_type
+        state := "WaitingPullback"
+        bars_since_pivot := 0
+    else if (state == "WaitingPullback" or state == "WaitingIncrease")
+        if (event_type == pivot_type)
+            // Check if pivot should be updated
+            should_update_pivot = (pivot_type == "LOCAL_MAX" and smadif_smooth > current_pivot_height) or 
+                                  (pivot_type == "LOCAL_MIN" and smadif_smooth < current_pivot_height)
+            if (should_update_pivot)
+                // Update pivot
+                current_pivot_height := smadif_smooth
+                pullback_height := na
+                height_after_pullback := na
+                required_pullback_height := na
+                bars_since_pivot := 0
+                state := "WaitingPullback"
+            else if (state == "WaitingIncrease" and not na(height_after_pullback))
+                // Check if pattern is complete
+                is_pattern_complete = (pivot_type == "LOCAL_MAX" and smadif_smooth <= current_pivot_height) or 
+                                      (pivot_type == "LOCAL_MIN" and smadif_smooth >= current_pivot_height)
+                if (is_pattern_complete)
+                    // Pattern complete
+                    // Delete the previous label if it exists
+                    if (not na(patternLabel))
+                        label.delete(patternLabel)
+                    
+                    // Create a new label at the current bar
+                    patternLabel := label.new(bar_index, smadif_smooth, text="Pattern Complete", style=label.style_label_center, color=color.yellow, textcolor=color.black, size=size.small)
+                    
+                    // Reset the state machine
+                    state := "Idle"
+                    current_pivot_height := na
+                    pivot_type := ""
+                    pullback_height := na
+                    height_after_pullback := na
+                    required_pullback_height := na
+                    bars_since_pivot := 0
+        else
+            // Opposite pivot type received; reset to Idle
+            state := "Idle"
+            current_pivot_height := na
+            pivot_type := ""
+            pullback_height := na
+            height_after_pullback := na
+            required_pullback_height := na
+            bars_since_pivot := 0
+else if (event_type == "HEIGHT")
+    // Handle height
+    if (state == "WaitingPullback")
+        // Calculate required pullback
+        pivot_abs = math.abs(current_pivot_height)
+        required_pullback = pivot_abs * (1 - pullback_threshold)
+        required_pullback_height := pivot_type == "LOCAL_MIN" ? (current_pivot_height - required_pullback) : (current_pivot_height - required_pullback)
+        
+        // Check if pullback is detected
+        is_pullback_detected = (pivot_type == "LOCAL_MAX" and smadif_smooth <= required_pullback_height) or 
+                               (pivot_type == "LOCAL_MIN" and smadif_smooth >= required_pullback_height)
+        
+        if (is_pullback_detected)
+            pullback_height := smadif_smooth
+            state := "WaitingIncrease"
+            bars_since_pivot := 0
+    else if (state == "WaitingIncrease")
+        // Check if height is moving in expected direction after pullback
+        is_moving_in_expected_direction = (pivot_type == "LOCAL_MAX" and smadif_smooth > pullback_height) or 
+                                           (pivot_type == "LOCAL_MIN" and smadif_smooth < pullback_height)
+        if (is_moving_in_expected_direction)
+            height_after_pullback := smadif_smooth
+
+// Increment bars_since_pivot if not in 'Idle' state
+if (state != "Idle")
+    bars_since_pivot += 1
+    if (bars_since_pivot > 120)
+        // Reset the state machine
+        state := "Idle"
+        current_pivot_height := na
+        pivot_type := ""
+        pullback_height := na
+        height_after_pullback := na
+        required_pullback_height := na
+        bars_since_pivot := 0
+
+// ------------------------------
+// Optional: Display Detected Patterns (Debugging)
+// ------------------------------
+// Uncomment the following lines if you wish to visualize the state transitions for debugging purposes.
+// plotchar(state == "WaitingPullback", title="Waiting Pullback", char='P', location=location.top, color=color.orange, size=size.tiny)
+// plotchar(state == "WaitingIncrease", title="Waiting Increase", char='I', location=location.top, color=color.blue, size=size.tiny)

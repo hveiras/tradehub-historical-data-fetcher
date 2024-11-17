@@ -11,7 +11,7 @@ API_SECRET = 'your_api_secret'
 binance_client = BinanceAPI(API_KEY, API_SECRET)
 
 # Database connection (replace these with your credentials)
-DB_HOST = 'localhost'
+DB_HOST = 'timescaledb'
 DB_NAME = 'my_timescale_db'
 DB_USER = 'postgres'
 DB_PASSWORD = 'mysecretpassword'
