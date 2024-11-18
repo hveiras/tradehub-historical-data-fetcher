@@ -4,7 +4,6 @@ FROM python:3.8-slim
 # Set working directory inside the container
 WORKDIR /app
 
-# Copy the content of the 'data_collector' folder to /app in the container
 COPY . /app
 
 # Install dependencies

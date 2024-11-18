@@ -1,1 +1,1 @@
-# tradehub-platform
+# TradeHub Collector

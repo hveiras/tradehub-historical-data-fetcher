@@ -1,4 +1,5 @@
-pandas
-numpy
-matplotlib
+flask
 requests
+python-binance
+psycopg2-binary
+apscheduler

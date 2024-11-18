@@ -1,3 +1,0 @@
-requests
-python-binance
-psycopg2-binary

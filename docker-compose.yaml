@@ -33,7 +33,7 @@ services:
 
   collector:
     build:
-      context: ./data_collector
+      context: ./
       dockerfile: Dockerfile
     container_name: collector
     environment:
@@ -43,6 +43,8 @@ services:
       DB_PASSWORD: mysecretpassword
       API_KEY: your_api_key
       API_SECRET: your_api_secret
+    ports:
+      - "5000:5000"
     depends_on:
       - timescaledb
     networks:
