@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS candlestick_data (
+CREATE TABLE IF NOT EXISTS futures_data_1m (
     exchange TEXT NOT NULL,
     symbol TEXT NOT NULL,
     timestamp TIMESTAMPTZ NOT NULL,
@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS candlestick_data (
     PRIMARY KEY (exchange, symbol, timestamp)
 );
 
-SELECT create_hypertable('candlestick_data', 'timestamp', if_not_exists => TRUE);
+SELECT create_hypertable('futures_data_1m', 'timestamp', if_not_exists => TRUE);
