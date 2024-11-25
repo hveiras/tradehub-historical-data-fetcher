@@ -3,3 +3,5 @@ requests
 python-binance
 psycopg2-binary
 websocket-client
+pandas
+tqdm
