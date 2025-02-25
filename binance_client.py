@@ -1,7 +1,6 @@
 import os
 import requests
 from zipfile import ZipFile
-from io import BytesIO
 import pandas as pd
 from tqdm import tqdm
 from datetime import datetime, timedelta, timezone
@@ -91,7 +90,6 @@ def download_and_extract_zip(symbol, interval, date, data_type='um', cache_dir='
     os.makedirs(cache_dir, exist_ok=True)
     zip_filename = f"{symbol}-{interval}-{date}.zip"
     zip_path = os.path.join(cache_dir, zip_filename)
-    csv_filename = f"{symbol}-{interval}-{date}.csv"  # Assuming the CSV inside ZIP follows this naming
 
     if os.path.exists(zip_path):
         logger.debug(f"Using cached ZIP file for {symbol} on {date}.")
@@ -201,7 +199,7 @@ def fetch_historical_candlesticks(symbol, rate_limiter, dates, interval='1m', da
     """
     for date in tqdm(dates, desc=f"Fetching {symbol}", unit="day"):
         if rate_limiter:
-            rate_limiter.acquire()
+            rate_limiter.acquire("REQUEST_WEIGHT")
 
         df = download_and_extract_zip(symbol, interval, date, data_type=data_type, cache_dir=cache_dir)
         if df is not None:

@@ -18,4 +18,4 @@ ENV API_KEY=your_api_key
 ENV API_SECRET=your_api_secret
 
 # Command to run the collector script
-CMD ["python", "collector.py"]
+CMD ["python", "app.py"]
