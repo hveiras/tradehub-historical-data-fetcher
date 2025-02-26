@@ -41,7 +41,7 @@ def on_close(ws, close_status_code, close_msg):
 def on_open(ws):
     logger.info("WebSocket connection opened.")
 
-def start_websocket_stream():
+def start_websocket_stream(stop_event):
     symbols = get_futures_symbols()
     stream_names = [f"{symbol.lower()}@kline_1m" for symbol in symbols]
     
