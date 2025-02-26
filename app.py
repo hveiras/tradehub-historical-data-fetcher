@@ -131,7 +131,7 @@ def stop_websocket():
         logger.error(f"Failed to stop WebSocket collector: {e}")
         return jsonify({'status': 'Failed to stop WebSocket collector.'}), 500
 
-@app.route('/')
+@app.route('/status', methods=['GET'])
 def index():
     """
     Health check endpoint.

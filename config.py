@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Binance API credentials
 API_KEY = os.getenv('BINANCE_API_KEY', 'your_api_key')
