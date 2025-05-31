@@ -63,7 +63,7 @@ The API server will start on `http://localhost:5001` by default.
 - **1-minute data**: Very large datasets, expect long download times
 - **Daily data**: Much smaller, faster to download
 - **All symbols**: 300+ symbols, use with caution for multiple timeframes
-- **Caching**: Downloaded ZIP files are cached to avoid re-downloading
+- **Database deduplication**: Checks database to avoid re-downloading existing data
 - **Rate limiting**: Built-in rate limiting respects Binance API limits
 
 ## Logging
@@ -104,7 +104,6 @@ Start a historical data fetch operation.
   "start_date": "2023-01-01",
   "end_date": "2023-12-31",
   "data_type": "um",
-  "cache_dir": "data",
   "dry_run": false
 }
 ```
@@ -132,7 +131,6 @@ Start a historical data fetch operation.
       "start_date": "2023-01-01",
       "end_date": "2023-12-31",
       "data_type": "um",
-      "cache_dir": "data",
       "dry_run": false
     }
   },
@@ -202,7 +200,6 @@ All parameters from the command-line interface are supported:
 - **start_date** (string): Start date in YYYY-MM-DD format
 - **end_date** (string): End date in YYYY-MM-DD format (optional)
 - **data_type** (string): "um" for USD-M Futures, "cm" for COIN-M Futures
-- **cache_dir** (string): Directory to cache downloaded files
 - **dry_run** (boolean): Preview mode - shows what would be fetched without downloading
 
 ### Example API Usage

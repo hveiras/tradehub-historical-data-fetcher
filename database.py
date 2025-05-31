@@ -176,3 +176,54 @@ def insert_futures_data_1m(data):
     Backward compatibility wrapper for 1m data insertion.
     """
     return insert_futures_data(data, '1m')
+
+def check_data_exists(symbol, date, timeframe, exchange='binance'):
+    """
+    Check if data already exists in the database for a given symbol, date, and timeframe.
+
+    :param symbol: Trading symbol, e.g., 'ADABUSD'
+    :param date: Date string in 'YYYY-MM-DD' format
+    :param timeframe: Timeframe string (1m, 5m, 1h, 1d)
+    :param exchange: Exchange name (default: 'binance')
+    :return: True if data exists, False otherwise
+    """
+    global conn, cursor
+
+    # Check if connection is still alive, reconnect if needed
+    try:
+        if conn is None or cursor is None or conn.closed:
+            logger.warning("Database connection lost. Attempting to reconnect...")
+            conn, cursor = connect_to_database()
+    except Exception as e:
+        logger.error(f"Failed to reconnect to database: {e}")
+        raise
+
+    # Map timeframes to table names
+    table_mapping = {
+        '1m': 'futures_data_historical_1m',
+        '5m': 'futures_data_historical_5m',
+        '1h': 'futures_data_historical_1h',
+        '1d': 'futures_data_historical_1d'
+    }
+
+    if timeframe not in table_mapping:
+        raise ValueError(f"Unsupported timeframe: {timeframe}. Supported: {list(table_mapping.keys())}")
+
+    table_name = table_mapping[timeframe]
+
+    # Query to check if any data exists for the given symbol and date
+    check_query = f"""
+    SELECT COUNT(*) FROM {table_name}
+    WHERE exchange = %s AND symbol = %s
+    AND DATE(timestamp) = %s
+    """
+
+    try:
+        cursor.execute(check_query, (exchange, symbol, date))
+        count = cursor.fetchone()[0]
+        exists = count > 0
+        logger.debug(f"Data exists check for {symbol} on {date} ({timeframe}): {exists} ({count} records)")
+        return exists
+    except Exception as e:
+        logger.error(f"Error checking if data exists for {symbol} on {date} ({timeframe}): {e}")
+        return False

@@ -1,4 +1,3 @@
-import os
 import requests
 from zipfile import ZipFile
 import pandas as pd
@@ -6,9 +5,10 @@ from tqdm import tqdm
 from datetime import datetime, timedelta, timezone
 import logging
 import time
+from io import BytesIO
 
 from config import API_KEY, API_SECRET  # Assuming these are still needed for some API interactions
-from database import insert_futures_data
+from database import insert_futures_data, check_data_exists
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 
@@ -88,34 +88,26 @@ def generate_date_range(start_date_str='2019-12-31', end_date_str=None):
     logger.debug(f"Generated date range from {start_date_str} to {end_date}. Total days: {len(dates)}")
     return dates
 
-def download_and_extract_zip(symbol, interval, date, data_type='um', cache_dir='data'):
+def download_and_extract_zip_streaming(symbol, interval, date, data_type='um'):
     """
-    Download and extract the ZIP file for a given symbol, interval, and date.
-    Implements caching to avoid re-downloading existing files.
-    
+    Download and extract the ZIP file for a given symbol, interval, and date using in-memory streaming.
+    Checks database first to avoid re-downloading existing data.
+
     :param symbol: Trading symbol, e.g., 'ADABUSD'
     :param interval: Kline interval, e.g., '1m'
     :param date: Date string in 'YYYY-MM-DD' format
     :param data_type: 'um' for USD-M Futures, 'cm' for COIN-M Futures
-    :param cache_dir: Directory to cache downloaded ZIP files
     :return: DataFrame containing the klines data or None if download/extraction fails
     """
-    os.makedirs(cache_dir, exist_ok=True)
-    zip_filename = f"{symbol}-{interval}-{date}.zip"
-    zip_path = os.path.join(cache_dir, zip_filename)
-
-    if os.path.exists(zip_path):
-        logger.debug(f"Using cached ZIP file for {symbol} on {date}.")
-        try:
-            with ZipFile(zip_path, 'r') as thezip:
-                with thezip.open(thezip.namelist()[0]) as thefile:
-                    df = pd.read_csv(thefile, header=None)
-                    return df
-        except Exception as e:
-            logger.error(f"Error extracting cached ZIP file {zip_path}: {e}")
+    # Check if data already exists in database
+    try:
+        if check_data_exists(symbol, date, interval):
+            logger.debug(f"Data already exists in database for {symbol} on {date} ({interval}). Skipping download.")
             return None
+    except Exception as e:
+        logger.warning(f"Could not check if data exists for {symbol} on {date} ({interval}): {e}. Proceeding with download.")
 
-    # Proceed to download if not cached
+    # Construct download URL
     url = f"{BASE_URL}/{data_type}/daily/klines/{symbol}/{interval}/{symbol}-{interval}-{date}.zip"
     logger.debug(f"Downloading ZIP file from {url}")
 
@@ -132,24 +124,19 @@ def download_and_extract_zip(symbol, interval, date, data_type='um', cache_dir='
         logger.error(f"Error occurred while downloading {url}: {err}")
         return None
 
-    # Save ZIP file to cache
+    # Process ZIP file in memory
     try:
-        with open(zip_path, 'wb') as f:
-            f.write(response.content)
-        logger.debug(f"Saved ZIP file to {zip_path}")
-    except Exception as e:
-        logger.error(f"Error saving ZIP file {zip_path}: {e}")
-        return None
+        # Create a BytesIO object from the response content
+        zip_buffer = BytesIO(response.content)
 
-    # Extract and read CSV
-    try:
-        with ZipFile(zip_path, 'r') as thezip:
+        # Extract and read CSV directly from memory
+        with ZipFile(zip_buffer, 'r') as thezip:
             with thezip.open(thezip.namelist()[0]) as thefile:
                 df = pd.read_csv(thefile, header=None)
-                logger.debug(f"Extracted and read CSV from {zip_path}")
+                logger.debug(f"Downloaded and extracted CSV for {symbol} on {date} ({interval}) - {len(df)} rows")
                 return df
     except Exception as e:
-        logger.error(f"Error extracting or parsing ZIP file {zip_path}: {e}")
+        logger.error(f"Error extracting or parsing ZIP file for {symbol} on {date}: {e}")
         return None
 
 def process_and_insert_data(symbol, df, timeframe='1m'):
@@ -216,23 +203,23 @@ def process_and_insert_data(symbol, df, timeframe='1m'):
             f"Error inserting data for {symbol} ({timeframe}) on {when}: {e}"
         )
 
-def fetch_historical_candlesticks(symbol, rate_limiter, dates, interval='1m', data_type='um', cache_dir='data'):
+def fetch_historical_candlesticks(symbol, rate_limiter, dates, interval='1m', data_type='um'):
     """
     Fetch historical candlesticks for a symbol by downloading and processing ZIP files from Binance's public data.
+    Uses in-memory streaming to avoid local storage issues in Kubernetes.
 
     :param symbol: Trading symbol, e.g., 'ADABUSD'
     :param rate_limiter: Rate limiter instance (if needed)
     :param dates: List of date strings in 'YYYY-MM-DD' format
     :param interval: Kline interval, e.g., '1m'
     :param data_type: 'um' for USD-M Futures, 'cm' for COIN-M Futures
-    :param cache_dir: Directory to cache downloaded ZIP files
     """
     for date in tqdm(dates, desc=f"Fetching {symbol} ({interval})", unit="day"):
         try:
             if rate_limiter:
                 rate_limiter.acquire("REQUEST_WEIGHT")
 
-            df = download_and_extract_zip(symbol, interval, date, data_type=data_type, cache_dir=cache_dir)
+            df = download_and_extract_zip_streaming(symbol, interval, date, data_type=data_type)
             if df is not None:
                 process_and_insert_data(symbol, df, timeframe=interval)
             else:
@@ -242,9 +229,10 @@ def fetch_historical_candlesticks(symbol, rate_limiter, dates, interval='1m', da
         finally:
             time.sleep(0.1)
 
-def fetch_and_insert_all_historical_data(rate_limiter, symbols=None, intervals=None, start_date='2019-12-31', end_date=None, data_type='um', cache_dir='data'):
+def fetch_and_insert_all_historical_data(rate_limiter, symbols=None, intervals=None, start_date='2019-12-31', end_date=None, data_type='um'):
     """
     Fetch and insert historical candlestick data for specified symbols and intervals.
+    Uses in-memory streaming to avoid local storage issues in Kubernetes.
 
     :param rate_limiter: Rate limiter instance (if needed)
     :param symbols: List of symbols to fetch. If None, fetches all perpetual futures symbols
@@ -252,7 +240,6 @@ def fetch_and_insert_all_historical_data(rate_limiter, symbols=None, intervals=N
     :param start_date: Start date as string in 'YYYY-MM-DD' format
     :param end_date: End date as string in 'YYYY-MM-DD' format. If None, fetches until today
     :param data_type: 'um' for USD-M Futures, 'cm' for COIN-M Futures
-    :param cache_dir: Directory to cache downloaded ZIP files
     """
     if symbols is None:
         symbols = get_futures_symbols()
@@ -269,7 +256,7 @@ def fetch_and_insert_all_historical_data(rate_limiter, symbols=None, intervals=N
         for interval in intervals:
             try:
                 logger.info(f"  Fetching {interval} data for {symbol}...")
-                fetch_historical_candlesticks(symbol, rate_limiter, dates, interval=interval, data_type=data_type, cache_dir=cache_dir)
+                fetch_historical_candlesticks(symbol, rate_limiter, dates, interval=interval, data_type=data_type)
             except Exception as e:
                 logger.error(f"Failed to fetch {interval} historical data for {symbol}: {e}")
         # Optional: Sleep between symbols to distribute rate limit usage

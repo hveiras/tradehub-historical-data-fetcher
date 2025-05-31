@@ -157,7 +157,6 @@ def start_fetch():
             'start_date': fetch_request.start_date,
             'end_date': fetch_request.end_date or 'today',
             'data_type': fetch_request.data_type,
-            'cache_dir': fetch_request.cache_dir,
             'dry_run': fetch_request.dry_run
         }
         
@@ -190,8 +189,7 @@ def start_fetch():
                     intervals=valid_intervals,
                     start_date=fetch_request.start_date,
                     end_date=fetch_request.end_date,
-                    data_type=fetch_request.data_type,
-                    cache_dir=fetch_request.cache_dir
+                    data_type=fetch_request.data_type
                 )
                 
                 # Update status on completion

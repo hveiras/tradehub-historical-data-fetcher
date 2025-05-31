@@ -20,7 +20,6 @@ class FetchRequest:
         self.start_date = data.get('start_date', '2019-12-31')
         self.end_date = data.get('end_date')
         self.data_type = data.get('data_type', 'um')
-        self.cache_dir = data.get('cache_dir', 'data')
         self.dry_run = data.get('dry_run', False)
     
     def validate(self) -> Tuple[bool, str]:
@@ -89,7 +88,6 @@ class FetchRequest:
             'start_date': self.start_date,
             'end_date': self.end_date,
             'data_type': self.data_type,
-            'cache_dir': self.cache_dir,
             'dry_run': self.dry_run
         }
 

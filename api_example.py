@@ -76,7 +76,6 @@ def start_sample_fetch(dry_run=True):
         "start_date": start_date.strftime("%Y-%m-%d"),
         "end_date": end_date.strftime("%Y-%m-%d"),
         "data_type": "um",
-        "cache_dir": "data",
         "dry_run": dry_run
     }
     
