@@ -166,9 +166,9 @@ def process_and_insert_data(symbol, df, timeframe='1m'):
 
     # Define column names based on Binance's Klines data structure
     column_names = [
-        'Open Time', 'Open', 'High', 'Low', 'Close', 'Volume',
-        'Close Time', 'Quote Asset Volume', 'Number of Trades',
-        'Taker Buy Base Asset Volume', 'Taker Buy Quote Asset Volume', 'Ignore'
+    'open_time', 'open', 'high', 'low', 'close', 'volume',
+    'close_time', 'quote_volume', 'count',
+    'taker_buy_volume', 'taker_buy_quote_volume', 'ignore'
     ]
     df.columns = column_names
 
@@ -178,17 +178,18 @@ def process_and_insert_data(symbol, df, timeframe='1m'):
     for _, row in df.iterrows():
         open_time = None
         try:
-            open_time = datetime.fromtimestamp(row['Open Time'] / 1000, tz=timezone.utc)
+            open_time_ms = pd.to_numeric(row['open_time'], errors='coerce')
+            open_time = datetime.fromtimestamp(open_time_ms / 1000, tz=timezone.utc)
             last_open_time = open_time  # Keep track of the last successfully processed timestamp
             data_point = (
                 'binance',
                 symbol,
                 open_time,
-                float(row['Open']),
-                float(row['High']),
-                float(row['Low']),
-                float(row['Close']),
-                float(row['Volume']),
+                float(row['open']),
+                float(row['high']),
+                float(row['low']),
+                float(row['close']),
+                float(row['volume']),
             )
             batch_data.append(data_point)
         except Exception as e:
