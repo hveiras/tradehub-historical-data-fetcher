@@ -92,13 +92,16 @@ except Exception as e:
     # Don't raise here to allow the application to start even with DB issues
     # The application can try to reconnect later
 
-def insert_futures_data_1m(data):
+def insert_futures_data(data, timeframe):
     """
-    Insert a list of candlestick data into the TimescaleDB table.
+    Insert a list of candlestick data into the appropriate TimescaleDB table based on timeframe.
     Includes connection recovery logic.
+
+    :param data: List of tuples containing candlestick data
+    :param timeframe: Timeframe string (1m, 5m, 15m, 1h, 4h, 1d)
     """
     global conn, cursor
-    
+
     # Check if connection is still alive, reconnect if needed
     try:
         if conn is None or cursor is None or conn.closed:
@@ -107,33 +110,47 @@ def insert_futures_data_1m(data):
     except Exception as e:
         logger.error(f"Failed to reconnect to database: {e}")
         raise
-    
-    insert_query = """
-    INSERT INTO futures_data_1m (exchange, symbol, timestamp, open, high, low, close, volume)
+
+    # Map timeframes to table names
+    table_mapping = {
+        '1m': 'futures_data_historical_1m',
+        '5m': 'futures_data_historical_5m',
+        '15m': 'futures_data_historical_15m',
+        '1h': 'futures_data_historical_1h',
+        '4h': 'futures_data_historical_4h',
+        '1d': 'futures_data_historical_1d'
+    }
+
+    if timeframe not in table_mapping:
+        raise ValueError(f"Unsupported timeframe: {timeframe}. Supported: {list(table_mapping.keys())}")
+
+    table_name = table_mapping[timeframe]
+    insert_query = f"""
+    INSERT INTO {table_name} (exchange, symbol, timestamp, open, high, low, close, volume)
     VALUES %s
     ON CONFLICT (exchange, symbol, timestamp) DO NOTHING
     RETURNING exchange;
     """
-    
+
     try:
         if not data:
             logger.warning("Attempted to insert empty data set")
             return
-            
-        logger.debug(f"Inserting {len(data)} records into TimescaleDB for symbol {data[0][1]}.")
+
+        logger.debug(f"Inserting {len(data)} records into {table_name} for symbol {data[0][1]}.")
         execute_values(cursor, insert_query, data, page_size=1000)
         inserted_rows = cursor.fetchall()
         rows_inserted = len(inserted_rows)
         conn.commit()
         if rows_inserted:
-            logger.debug(f"Inserted {rows_inserted} records into TimescaleDB.")
+            logger.debug(f"Inserted {rows_inserted} records into {table_name}.")
         else:
             logger.debug("No new records were inserted.")
     except psycopg2.Error as e:
         logger.error(f"Database error inserting data: {e.pgerror if hasattr(e, 'pgerror') else str(e)}")
         logger.error(f"Error code: {e.pgcode if hasattr(e, 'pgcode') else 'N/A'}")
         conn.rollback()
-        
+
         # Try to reconnect if it's a connection issue
         if isinstance(e, psycopg2.OperationalError) or "connection" in str(e).lower():
             logger.warning("Connection may be lost. Attempting to reconnect...")
@@ -144,13 +161,20 @@ def insert_futures_data_1m(data):
                 logger.error(f"Failed to reconnect: {reconnect_error}")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error inserting data into TimescaleDB: {e}")
+        logger.error(f"Unexpected error inserting data into {table_name}: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
-        
+
         # Include sample of problematic data for debugging
         if data:
             sample = data[0] if len(data) == 1 else f"{data[0]} ... (and {len(data)-1} more)"
             logger.debug(f"Sample data that caused the error: {sample}")
-            
+
         conn.rollback()
         raise
+
+# Backward compatibility function
+def insert_futures_data_1m(data):
+    """
+    Backward compatibility wrapper for 1m data insertion.
+    """
+    return insert_futures_data(data, '1m')

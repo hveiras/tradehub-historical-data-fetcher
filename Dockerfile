@@ -18,13 +18,10 @@ ENV DB_HOST=timescaledb
 ENV DB_NAME=my_timescale_db
 ENV DB_USER=postgres
 ENV DB_PASSWORD=mysecretpassword
-ENV API_KEY=your_api_key
-ENV API_SECRET=your_api_secret
+ENV BINANCE_API_KEY=your_api_key
+ENV BINANCE_API_SECRET=your_api_secret
 ENV LOG_LEVEL=INFO
 ENV PYTHONUNBUFFERED=1
 
-# Expose the port the app runs on
-EXPOSE 5000
-
-# Command to run the collector script
-CMD ["python", "app.py"]
+# Default command shows help - override with your desired arguments
+CMD ["python", "app.py", "--help"]
