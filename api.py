@@ -19,7 +19,8 @@ import logging
 import sys
 import threading
 from datetime import datetime
-from flask import Flask, request, jsonify
+
+from flask import Flask, request, Response
 from flask_cors import CORS
 
 # Import existing modules
@@ -95,6 +96,24 @@ def get_symbols():
     except Exception as e:
         logger.error(f"Error fetching symbols: {e}")
         return create_error_response(f"Failed to fetch symbols: {str(e)}", 500)
+    
+@app.route('/api/symbols/perp-tradingview', methods=['GET'])
+def get_symbols_perp():
+    """Get list of available trading symbols in TradingView perpetual futures format."""
+    try:
+        symbols = get_futures_symbols()
+        if not symbols:
+            return create_error_response("Failed to fetch symbols from Binance", 503)
+
+        # Convert to TradingView perpetual futures format
+        perp_symbols = [f"BINANCE:{symbol}.P" for symbol in symbols]
+        output_txt = ",".join(perp_symbols)
+
+        return Response(output_txt, mimetype='text/plain'), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching perp symbols: {e}")
+        return create_error_response(f"Failed to fetch perp symbols: {str(e)}", 500)
 
 
 @app.route('/api/intervals', methods=['GET'])
@@ -257,6 +276,7 @@ if __name__ == '__main__':
     logger.info("Available endpoints:")
     logger.info("  POST /api/fetch - Start a historical data fetch")
     logger.info("  GET /api/symbols - Get available trading symbols")
+    logger.info("  GET /api/symbols/perp-tradingview - Convert symbols to perpetual futures format")
     logger.info("  GET /api/intervals - Get supported timeframes")
     logger.info("  GET /api/health - Health check")
     logger.info("  GET /api/fetch/<id>/status - Get fetch status")
