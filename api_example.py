@@ -12,7 +12,7 @@ import json
 from datetime import datetime, timedelta
 
 # API base URL
-API_BASE = "http://localhost:5000/api"
+API_BASE = "http://localhost:5001/api"
 
 def check_api_health():
     """Check if the API is running and healthy."""
@@ -215,7 +215,7 @@ def main():
         if fetch_id:
             print(f"\n✅ Real fetch started with ID: {fetch_id}")
             print("You can monitor it by running:")
-            print(f"curl http://localhost:5000/api/fetch/{fetch_id}/status")
+            print(f"curl http://localhost:5001/api/fetch/{fetch_id}/status")
     else:
         print("\n👍 Dry run completed. No real data was fetched.")
     

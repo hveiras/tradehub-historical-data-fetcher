@@ -24,7 +24,7 @@ ENV LOG_LEVEL=INFO
 ENV PYTHONUNBUFFERED=1
 
 # Expose port for API
-EXPOSE 5000
+EXPOSE 5001
 
 # Default command starts the API server
 # The service is now API-only

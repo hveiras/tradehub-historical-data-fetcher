@@ -18,7 +18,7 @@ python app.py --symbols BTCUSDT ETHUSDT --intervals 1m 5m --start-date 2023-01-0
 python api.py
 
 # Use API endpoints
-curl -X POST http://localhost:5000/api/fetch \
+curl -X POST http://localhost:5001/api/fetch \
   -H "Content-Type: application/json" \
   -d '{
     "symbols": ["BTCUSDT", "ETHUSDT"],
@@ -101,7 +101,7 @@ All CLI parameters are supported in the API with the same names:
 
 3. **Use API endpoints**
    ```bash
-   curl -X POST http://localhost:5000/api/fetch \
+   curl -X POST http://localhost:5001/api/fetch \
      -H "Content-Type: application/json" \
      -d '{"symbols": ["BTCUSDT"], "intervals": ["1m"]}'
    ```
@@ -117,7 +117,7 @@ All CLI parameters are supported in the API with the same names:
    docker-compose --profile cli up historical-data-cli
    ```
 
-2. **API will be available at http://localhost:5000**
+2. **API will be available at http://localhost:5001**
 
 ### For Developers
 

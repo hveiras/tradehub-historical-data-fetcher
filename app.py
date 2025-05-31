@@ -124,7 +124,7 @@ if __name__ == '__main__':
     print("To start the REST API server:")
     print("  python api.py")
     print("")
-    print("The API will be available at: http://localhost:5000")
+    print("The API will be available at: http://localhost:5001")
     print("")
     print("Available endpoints:")
     print("  POST /api/fetch        - Start a historical data fetch")

@@ -56,7 +56,7 @@ This service is **API-only** and does not support command-line arguments. All op
 python api.py
 ```
 
-The API server will start on `http://localhost:5000` by default.
+The API server will start on `http://localhost:5001` by default.
 
 ## Performance Considerations
 
@@ -89,7 +89,7 @@ The historical data fetcher also provides a REST API for programmatic access. Th
 python api.py
 ```
 
-The API server will start on `http://localhost:5000` by default.
+The API server will start on `http://localhost:5001` by default.
 
 ### API Endpoints
 
@@ -210,7 +210,7 @@ All parameters from the command-line interface are supported:
 **Using curl:**
 ```bash
 # Start a fetch for Bitcoin 1-minute data
-curl -X POST http://localhost:5000/api/fetch \
+curl -X POST http://localhost:5001/api/fetch \
   -H "Content-Type: application/json" \
   -d '{
     "symbols": ["BTCUSDT"],
@@ -220,10 +220,10 @@ curl -X POST http://localhost:5000/api/fetch \
   }'
 
 # Check available symbols
-curl http://localhost:5000/api/symbols
+curl http://localhost:5001/api/symbols
 
 # Health check
-curl http://localhost:5000/api/health
+curl http://localhost:5001/api/health
 ```
 
 **Using Python requests:**
@@ -231,7 +231,7 @@ curl http://localhost:5000/api/health
 import requests
 
 # Start a fetch
-response = requests.post('http://localhost:5000/api/fetch', json={
+response = requests.post('http://localhost:5001/api/fetch', json={
     'symbols': ['BTCUSDT', 'ETHUSDT'],
     'intervals': ['1h', '1d'],
     'start_date': '2023-01-01'
@@ -241,7 +241,7 @@ fetch_data = response.json()
 fetch_id = fetch_data['data']['request_summary']['fetch_id']
 
 # Check status
-status_response = requests.get(f'http://localhost:5000/api/fetch/{fetch_id}/status')
+status_response = requests.get(f'http://localhost:5001/api/fetch/{fetch_id}/status')
 print(status_response.json())
 ```
 

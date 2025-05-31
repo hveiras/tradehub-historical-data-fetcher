@@ -173,9 +173,13 @@ def process_and_insert_data(symbol, df, timeframe='1m'):
     df.columns = column_names
 
     batch_data = []
+    last_open_time = None
+
     for _, row in df.iterrows():
+        open_time = None
         try:
             open_time = datetime.fromtimestamp(row['Open Time'] / 1000, tz=timezone.utc)
+            last_open_time = open_time  # Keep track of the last successfully processed timestamp
             data_point = (
                 'binance',
                 symbol,
@@ -188,17 +192,28 @@ def process_and_insert_data(symbol, df, timeframe='1m'):
             )
             batch_data.append(data_point)
         except Exception as e:
-            logger.error(f"Error processing row for {symbol} on {open_time}: {e}")
+            logger.error(f"Error processing row for {symbol}: {e}")
             continue
 
-    if batch_data:
-        try:
-            insert_futures_data(batch_data, timeframe)
-            logger.info(f"Inserted {len(batch_data)} candlesticks for {symbol} ({timeframe}) on {open_time.date()}.")
-        except Exception as e:
-            logger.error(f"Error inserting data into database for {symbol} ({timeframe}) on {open_time.date()}: {e}")
-    else:
+    if not batch_data:
         logger.debug(f"No valid data points to insert for {symbol}.")
+        return
+
+    # Insert and log, but guard against missing last_open_time
+    try:
+        insert_futures_data(batch_data, timeframe)
+        if last_open_time:
+            logger.info(
+                f"Inserted {len(batch_data)} candlesticks for {symbol} "
+                f"({timeframe}) on {last_open_time.date()}."
+            )
+        else:
+            logger.info(f"Inserted {len(batch_data)} candlesticks for {symbol} ({timeframe}).")
+    except Exception as e:
+        when = last_open_time.date() if last_open_time else "unknown date"
+        logger.error(
+            f"Error inserting data for {symbol} ({timeframe}) on {when}: {e}"
+        )
 
 def fetch_historical_candlesticks(symbol, rate_limiter, dates, interval='1m', data_type='um', cache_dir='data'):
     """
@@ -212,17 +227,19 @@ def fetch_historical_candlesticks(symbol, rate_limiter, dates, interval='1m', da
     :param cache_dir: Directory to cache downloaded ZIP files
     """
     for date in tqdm(dates, desc=f"Fetching {symbol} ({interval})", unit="day"):
-        if rate_limiter:
-            rate_limiter.acquire("REQUEST_WEIGHT")
+        try:
+            if rate_limiter:
+                rate_limiter.acquire("REQUEST_WEIGHT")
 
-        df = download_and_extract_zip(symbol, interval, date, data_type=data_type, cache_dir=cache_dir)
-        if df is not None:
-            process_and_insert_data(symbol, df, timeframe=interval)
-        else:
-            logger.debug(f"No data for {symbol} on {date}. Skipping.")
-
-        # Optional: Respect rate limits by adding a small sleep
-        time.sleep(0.1)
+            df = download_and_extract_zip(symbol, interval, date, data_type=data_type, cache_dir=cache_dir)
+            if df is not None:
+                process_and_insert_data(symbol, df, timeframe=interval)
+            else:
+                logger.debug(f"No data for {symbol} on {date}. Skipping.")
+        except Exception as e:
+            logger.error(f"Unexpected failure for {symbol} on {date} ({interval}): {e}")
+        finally:
+            time.sleep(0.1)
 
 def fetch_and_insert_all_historical_data(rate_limiter, symbols=None, intervals=None, start_date='2019-12-31', end_date=None, data_type='um', cache_dir='data'):
     """
