@@ -5,7 +5,7 @@ This module contains request/response models and validation logic for the Flask 
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class FetchRequest:
         self.cache_dir = data.get('cache_dir', 'data')
         self.dry_run = data.get('dry_run', False)
     
-    def validate(self) -> tuple[bool, str]:
+    def validate(self) -> Tuple[bool, str]:
         """
         Validate the fetch request.
         
@@ -145,13 +145,13 @@ class IntervalsResponse(ApiResponse):
             self.data['count'] = len(intervals)
 
 
-def create_error_response(message: str, status_code: int = 400) -> tuple[dict, int]:
+def create_error_response(message: str, status_code: int = 400) -> Tuple[dict, int]:
     """Create a standardized error response."""
     response = ApiResponse(success=False, message=message)
     return response.to_dict(), status_code
 
 
-def create_success_response(message: str, data: Optional[dict] = None) -> tuple[dict, int]:
+def create_success_response(message: str, data: Optional[dict] = None) -> Tuple[dict, int]:
     """Create a standardized success response."""
     response = ApiResponse(success=True, message=message, data=data)
     return response.to_dict(), 200
