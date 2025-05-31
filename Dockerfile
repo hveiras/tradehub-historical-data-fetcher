@@ -23,5 +23,9 @@ ENV BINANCE_API_SECRET=your_api_secret
 ENV LOG_LEVEL=INFO
 ENV PYTHONUNBUFFERED=1
 
+# Expose port for API
+EXPOSE 5000
+
 # Default command shows help - override with your desired arguments
+# For API mode, use: CMD ["python", "api.py"]
 CMD ["python", "app.py", "--help"]

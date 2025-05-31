@@ -138,6 +138,247 @@ Set the log level via environment variable:
 LOG_LEVEL=DEBUG  # or INFO, WARNING, ERROR
 ```
 
+## REST API
+
+The historical data fetcher also provides a REST API for programmatic access. This allows you to start data fetches via HTTP requests instead of command line.
+
+### Starting the API Server
+
+```bash
+python api.py
+```
+
+The API server will start on `http://localhost:5000` by default.
+
+### API Endpoints
+
+#### POST /api/fetch
+Start a historical data fetch operation.
+
+**Request Body:**
+```json
+{
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "intervals": ["1m", "5m"],
+  "start_date": "2023-01-01",
+  "end_date": "2023-12-31",
+  "data_type": "um",
+  "cache_dir": "data",
+  "dry_run": false
+}
+```
+
+**Alternative - Fetch all symbols:**
+```json
+{
+  "all_symbols": true,
+  "intervals": ["1d"],
+  "start_date": "2023-01-01"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Historical data fetch started successfully with ID: fetch_1_1703123456",
+  "data": {
+    "request_summary": {
+      "fetch_id": "fetch_1_1703123456",
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "symbol_count": 2,
+      "intervals": ["1m", "5m"],
+      "start_date": "2023-01-01",
+      "end_date": "2023-12-31",
+      "data_type": "um",
+      "cache_dir": "data",
+      "dry_run": false
+    }
+  },
+  "timestamp": "2023-12-21T10:30:56.123456"
+}
+```
+
+#### GET /api/symbols
+Get list of available trading symbols.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Retrieved 300+ perpetual futures symbols",
+  "data": {
+    "symbols": ["BTCUSDT", "ETHUSDT", "ADAUSDT", ...],
+    "count": 300
+  }
+}
+```
+
+#### GET /api/intervals
+Get list of supported timeframes.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Retrieved 4 supported intervals",
+  "data": {
+    "intervals": ["1m", "5m", "1h", "1d"],
+    "count": 4
+  }
+}
+```
+
+#### GET /api/fetch/{fetch_id}/status
+Get status of a specific fetch operation.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Fetch fetch_1_1703123456 status",
+  "data": {
+    "status": "running",
+    "started_at": "2023-12-21T10:30:56.123456",
+    "request": { ... }
+  }
+}
+```
+
+#### GET /api/fetch/active
+Get list of all active fetch operations.
+
+#### GET /api/health
+Health check endpoint.
+
+### API Parameters
+
+All parameters from the command-line interface are supported:
+
+- **symbols** (array): List of trading symbols (e.g., ["BTCUSDT", "ETHUSDT"])
+- **all_symbols** (boolean): Fetch data for all available perpetual futures symbols
+- **intervals** (array): List of timeframes (["1m", "5m", "1h", "1d"])
+- **start_date** (string): Start date in YYYY-MM-DD format
+- **end_date** (string): End date in YYYY-MM-DD format (optional)
+- **data_type** (string): "um" for USD-M Futures, "cm" for COIN-M Futures
+- **cache_dir** (string): Directory to cache downloaded files
+- **dry_run** (boolean): Preview mode - shows what would be fetched without downloading
+
+### Example API Usage
+
+**Using curl:**
+```bash
+# Start a fetch for Bitcoin 1-minute data
+curl -X POST http://localhost:5000/api/fetch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbols": ["BTCUSDT"],
+    "intervals": ["1m"],
+    "start_date": "2023-12-01",
+    "end_date": "2023-12-31"
+  }'
+
+# Check available symbols
+curl http://localhost:5000/api/symbols
+
+# Health check
+curl http://localhost:5000/api/health
+```
+
+**Using Python requests:**
+```python
+import requests
+
+# Start a fetch
+response = requests.post('http://localhost:5000/api/fetch', json={
+    'symbols': ['BTCUSDT', 'ETHUSDT'],
+    'intervals': ['1h', '1d'],
+    'start_date': '2023-01-01'
+})
+
+fetch_data = response.json()
+fetch_id = fetch_data['data']['request_summary']['fetch_id']
+
+# Check status
+status_response = requests.get(f'http://localhost:5000/api/fetch/{fetch_id}/status')
+print(status_response.json())
+```
+
+## Docker Deployment
+
+### Using Docker Compose (Recommended)
+
+The easiest way to run both the API and database is using Docker Compose:
+
+```bash
+# Set your Binance API credentials
+export BINANCE_API_KEY=your_actual_api_key
+export BINANCE_API_SECRET=your_actual_api_secret
+
+# Start the API and database
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f historical-data-api
+
+# Stop services
+docker-compose down
+```
+
+This will start:
+- TimescaleDB on port 5432
+- Historical Data Fetcher API on port 5000
+
+### Using Docker Compose for CLI
+
+To run the command-line version with Docker:
+
+```bash
+# Run a one-time fetch
+docker-compose run --rm historical-data-cli python app.py --symbols BTCUSDT --intervals 1h --dry-run
+
+# Or start the CLI service
+docker-compose --profile cli up historical-data-cli
+```
+
+### Manual Docker Build
+
+```bash
+# Build the image
+docker build -t historical-data-fetcher .
+
+# Run the API
+docker run -d \
+  --name historical-data-api \
+  -p 5000:5000 \
+  -e DB_HOST=your_db_host \
+  -e DB_NAME=my_timescale_db \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=mysecretpassword \
+  -e BINANCE_API_KEY=your_api_key \
+  -e BINANCE_API_SECRET=your_api_secret \
+  historical-data-fetcher python api.py
+
+# Run CLI commands
+docker run --rm \
+  -e DB_HOST=your_db_host \
+  -e BINANCE_API_KEY=your_api_key \
+  -e BINANCE_API_SECRET=your_api_secret \
+  historical-data-fetcher python app.py --symbols BTCUSDT --intervals 1m --dry-run
+```
+
+## Testing the API
+
+Use the provided example script to test the API:
+
+```bash
+# Make sure the API is running first
+python api.py
+
+# In another terminal, run the example
+python api_example.py
+```
+
 ## Error Handling
 
 The tool includes robust error handling for:
