@@ -48,74 +48,15 @@ psql -h localhost -U postgres -d my_timescale_db -f init.sql
 
 ## Usage
 
-### Basic Examples
+This service is **API-only** and does not support command-line arguments. All operations must be performed through the REST API.
 
-Fetch 1-minute data for specific symbols:
+### Starting the Service
+
 ```bash
-python app.py --symbols BTCUSDT ETHUSDT --intervals 1m
+python api.py
 ```
 
-Fetch multiple timeframes for Bitcoin:
-```bash
-python app.py --symbols BTCUSDT --intervals 1m 5m 1h 1d
-```
-
-Fetch data for all perpetual futures symbols (WARNING: This will take a very long time!):
-```bash
-python app.py --all-symbols --intervals 1m 5m
-```
-
-### Date Range Examples
-
-Fetch data from a specific start date:
-```bash
-python app.py --symbols BTCUSDT --intervals 1d --start-date 2020-01-01
-```
-
-Fetch data for a specific date range:
-```bash
-python app.py --symbols BTCUSDT ETHUSDT --intervals 1h --start-date 2023-01-01 --end-date 2023-12-31
-```
-
-### Advanced Options
-
-Use dry-run mode to see what would be fetched:
-```bash
-python app.py --symbols BTCUSDT --intervals 1m 5m --dry-run
-```
-
-Specify custom cache directory:
-```bash
-python app.py --symbols BTCUSDT --intervals 1m --cache-dir /path/to/cache
-```
-
-Fetch COIN-M futures data instead of USD-M:
-```bash
-python app.py --symbols BTCUSD_PERP --intervals 1m --data-type cm
-```
-
-### Command-Line Options
-
-```
-usage: app.py [-h] (--symbols SYMBOLS [SYMBOLS ...] | --all-symbols)
-              [--intervals INTERVALS [INTERVALS ...]] [--start-date START_DATE]
-              [--end-date END_DATE] [--data-type {um,cm}] [--cache-dir CACHE_DIR]
-              [--dry-run]
-
-options:
-  --symbols SYMBOLS [SYMBOLS ...]
-                        List of trading symbols (e.g., BTCUSDT ETHUSDT)
-  --all-symbols         Fetch data for all available perpetual futures symbols
-  --intervals INTERVALS [INTERVALS ...]
-                        List of timeframes to fetch (1m, 5m, 1h, 1d). Default: 1m
-  --start-date START_DATE
-                        Start date in YYYY-MM-DD format. Default: 2019-12-31
-  --end-date END_DATE   End date in YYYY-MM-DD format. If not specified, fetches until today
-  --data-type {um,cm}   Data type: um for USD-M Futures, cm for COIN-M Futures. Default: um
-  --cache-dir CACHE_DIR
-                        Directory to cache downloaded files. Default: data
-  --dry-run             Show what would be fetched without actually downloading
-```
+The API server will start on `http://localhost:5000` by default.
 
 ## Performance Considerations
 
@@ -329,17 +270,9 @@ This will start:
 - TimescaleDB on port 5432
 - Historical Data Fetcher API on port 5000
 
-### Using Docker Compose for CLI
+### Note on CLI Service
 
-To run the command-line version with Docker:
-
-```bash
-# Run a one-time fetch
-docker-compose run --rm historical-data-cli python app.py --symbols BTCUSDT --intervals 1h --dry-run
-
-# Or start the CLI service
-docker-compose --profile cli up historical-data-cli
-```
+The `historical-data-cli` service in docker-compose.yml is deprecated since the service is now API-only. It's kept for backward compatibility but will show an informational message directing users to the API.
 
 ### Manual Docker Build
 
@@ -359,12 +292,8 @@ docker run -d \
   -e BINANCE_API_SECRET=your_api_secret \
   historical-data-fetcher python api.py
 
-# Run CLI commands
-docker run --rm \
-  -e DB_HOST=your_db_host \
-  -e BINANCE_API_KEY=your_api_key \
-  -e BINANCE_API_SECRET=your_api_secret \
-  historical-data-fetcher python app.py --symbols BTCUSDT --intervals 1m --dry-run
+# Note: CLI commands are no longer supported
+# Use the API endpoints instead
 ```
 
 ## Testing the API

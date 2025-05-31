@@ -4,8 +4,8 @@ API Models and Validation for Historical Data Fetcher API
 This module contains request/response models and validation logic for the Flask API.
 """
 
-from datetime import datetime
-from typing import List, Optional, Union
+from datetime import datetime, timezone
+from typing import List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class ApiResponse:
         self.success = success
         self.message = message
         self.data = data or {}
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
     
     def to_dict(self) -> dict:
         """Convert response to dictionary."""

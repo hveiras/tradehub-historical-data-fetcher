@@ -26,6 +26,6 @@ ENV PYTHONUNBUFFERED=1
 # Expose port for API
 EXPOSE 5000
 
-# Default command shows help - override with your desired arguments
-# For API mode, use: CMD ["python", "api.py"]
-CMD ["python", "app.py", "--help"]
+# Default command starts the API server
+# The service is now API-only
+CMD ["python", "api.py"]

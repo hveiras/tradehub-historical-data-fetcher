@@ -176,10 +176,13 @@ def main():
     """Main example function."""
     print("🔧 Historical Data Fetcher API Example")
     print("=" * 50)
-    
+    print("Note: This service is API-only. CLI commands are no longer supported.")
+    print("")
+
     # Check API health
     if not check_api_health():
         print("\n❌ API is not available. Make sure to start it with: python api.py")
+        print("The service no longer supports command-line arguments.")
         return
     
     # Get available symbols and intervals

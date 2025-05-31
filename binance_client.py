@@ -8,7 +8,7 @@ import logging
 import time
 
 from config import API_KEY, API_SECRET  # Assuming these are still needed for some API interactions
-from database import insert_futures_data, insert_futures_data_1m
+from database import insert_futures_data
 from binance.client import Client
 from binance.exceptions import BinanceAPIException
 
