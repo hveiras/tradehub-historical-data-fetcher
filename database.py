@@ -98,7 +98,7 @@ def insert_futures_data(data, timeframe):
     Includes connection recovery logic.
 
     :param data: List of tuples containing candlestick data
-    :param timeframe: Timeframe string (1m, 5m, 15m, 1h, 4h, 1d)
+    :param timeframe: Timeframe string (1m, 5m, 1h, 1d)
     """
     global conn, cursor
 
@@ -115,9 +115,7 @@ def insert_futures_data(data, timeframe):
     table_mapping = {
         '1m': 'futures_data_historical_1m',
         '5m': 'futures_data_historical_5m',
-        '15m': 'futures_data_historical_15m',
         '1h': 'futures_data_historical_1h',
-        '4h': 'futures_data_historical_4h',
         '1d': 'futures_data_historical_1d'
     }
 

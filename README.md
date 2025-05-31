@@ -4,7 +4,7 @@ A command-line tool for fetching historical candlestick data from Binance future
 
 ## Features
 
-- ✅ Fetches historical data for multiple timeframes (1m, 5m, 15m, 1h, 4h, 1d)
+- ✅ Fetches historical data for multiple timeframes (1m, 5m 1h, 1d)
 - ✅ Supports all Binance perpetual futures symbols
 - ✅ Stores data in separate TimescaleDB tables by timeframe
 - ✅ Intelligent caching to avoid re-downloading existing data
@@ -19,9 +19,7 @@ The tool creates separate tables for each timeframe:
 
 - `futures_data_historical_1m` - 1-minute candlesticks
 - `futures_data_historical_5m` - 5-minute candlesticks
-- `futures_data_historical_15m` - 15-minute candlesticks
 - `futures_data_historical_1h` - 1-hour candlesticks
-- `futures_data_historical_4h` - 4-hour candlesticks
 - `futures_data_historical_1d` - 1-day candlesticks
 
 Each table contains: `exchange`, `symbol`, `timestamp`, `open`, `high`, `low`, `close`, `volume`
@@ -109,7 +107,7 @@ options:
                         List of trading symbols (e.g., BTCUSDT ETHUSDT)
   --all-symbols         Fetch data for all available perpetual futures symbols
   --intervals INTERVALS [INTERVALS ...]
-                        List of timeframes to fetch (1m, 5m, 15m, 1h, 4h, 1d). Default: 1m
+                        List of timeframes to fetch (1m, 5m, 1h, 1d). Default: 1m
   --start-date START_DATE
                         Start date in YYYY-MM-DD format. Default: 2019-12-31
   --end-date END_DATE   End date in YYYY-MM-DD format. If not specified, fetches until today
@@ -148,14 +146,3 @@ The tool includes robust error handling for:
 - Invalid symbols or date ranges
 - Rate limit exceeded scenarios
 - Corrupted or missing data files
-
-## Changes from Previous Version
-
-This version has been completely refactored to:
-- ❌ Remove all WebSocket functionality
-- ✅ Add support for multiple timeframes (1m, 5m, 15m, 1h, 4h, 1d)
-- ✅ Replace Flask web interface with command-line interface
-- ✅ Add comprehensive argument validation
-- ✅ Improve database schema to match timeframe-specific tables
-- ✅ Add date range selection capabilities
-- ✅ Enhance error handling and logging

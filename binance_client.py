@@ -158,7 +158,7 @@ def process_and_insert_data(symbol, df, timeframe='1m'):
 
     :param symbol: Trading symbol, e.g., 'ADABUSD'
     :param df: DataFrame containing the klines data
-    :param timeframe: Timeframe string (1m, 5m, 15m, 1h, 4h, 1d)
+    :param timeframe: Timeframe string (1m, 5m, 1h, 1d)
     """
     if df.empty:
         logger.debug(f"No data in DataFrame for {symbol}.")

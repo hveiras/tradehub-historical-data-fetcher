@@ -7,7 +7,7 @@ and stores them in TimescaleDB tables organized by timeframe.
 
 Usage:
     python app.py --symbols BTCUSDT ETHUSDT --intervals 1m 5m 1h --start-date 2023-01-01
-    python app.py --all-symbols --intervals 1m 5m 15m 1h 4h 1d
+    python app.py --all-symbols --intervals 1m 5m 1h 1d
     python app.py --symbols BTCUSDT --intervals 1d --start-date 2020-01-01 --end-date 2023-12-31
 """
 
@@ -84,7 +84,7 @@ def validate_intervals(intervals):
     :param intervals: List of interval strings
     :return: List of valid intervals
     """
-    supported_intervals = ['1m', '5m', '15m', '1h', '4h', '1d']
+    supported_intervals = ['1m', '5m', '1h', '1d']
     valid_intervals = []
     invalid_intervals = []
 
@@ -128,7 +128,7 @@ Examples:
   python app.py --symbols BTCUSDT ETHUSDT --intervals 1m 5m
 
   # Fetch all timeframes for all symbols (WARNING: This will take a very long time!)
-  python app.py --all-symbols --intervals 1m 5m 15m 1h 4h 1d
+  python app.py --all-symbols --intervals 1m 5m 1h 1d
 
   # Fetch daily data for Bitcoin from 2020 onwards
   python app.py --symbols BTCUSDT --intervals 1d --start-date 2020-01-01
@@ -156,7 +156,7 @@ Examples:
         '--intervals',
         nargs='+',
         default=['1m'],
-        help='List of timeframes to fetch (1m, 5m, 15m, 1h, 4h, 1d). Default: 1m'
+        help='List of timeframes to fetch (1m, 5m, 1h, 1d). Default: 1m'
     )
 
     # Date range
