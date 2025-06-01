@@ -18,6 +18,7 @@ API Endpoints:
 import logging
 import sys
 import threading
+import os
 from datetime import datetime
 
 from flask import Flask, request, Response
@@ -282,5 +283,9 @@ if __name__ == '__main__':
     logger.info("  GET /api/fetch/<id>/status - Get fetch status")
     logger.info("  GET /api/fetch/active - Get active fetches")
     
+    # Get port from environment variable or use 0 for dynamic assignment
+    port = int(os.environ.get('FLASK_PORT', 0))
+    logger.info(f"Starting Flask web server on 0.0.0.0:{port if port != 0 else 'dynamic'}...")
+
     # Run the Flask app
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)
